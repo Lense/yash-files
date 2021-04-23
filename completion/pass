@@ -1,0 +1,200 @@
+# (C) 2021 Lense
+
+# Completion script for the "pass" command. https://www.passwordstore.org/
+# Supports pass v1.7.3.
+
+function completion/pass {
+	typeset OPTIONS ARGOPT PREFIX
+	typeset PASSWORD_STORE_DIR="${PASSWORD_STORE_DIR:-$HOME/.password-store/}"
+	PASSWORD_STORE_DIR="${PASSWORD_STORE_DIR%%/}/"  # Normalize single trailing /
+	case "${WORDS[2]}" in
+		('')
+			complete -- init help --help version --version show ls list find search grep insert add edit generate delete rm remove rename mv copy cp git
+			command -f completion/pass::show
+			;;
+		(init)
+			OPTIONS=( #>#
+				"p: --path:; path"
+			) #<#
+			command -f completion//parseoptions -es
+			case $ARGOPT in
+				(-)
+					command -f completion//completeoptions -eS
+					;;
+				(--path|p)
+					command -f completion/pass::complete_passdir
+					;;
+				('')
+					command -f completion//getoperands
+					[ ${WORDS[#]} = 1 ] && command -f completion/pass::complete_keys
+					;;
+			esac
+			;;
+		(show|ls|list)
+			command -f completion/pass::show
+			;;
+		(find|search)
+			;;
+		(grep)
+			. -AL completion/grep
+			WORDS=(grep)
+			TARGETWORD=-
+			command -f completion/grep
+			;;
+		(insert|add)
+			OPTIONS=( #>#
+				"m --multiline; multiline"
+				"e --echo; echo"
+				"f --force; force"
+			) #<#
+			command -f completion//parseoptions -es
+			case $ARGOPT in
+				(-)
+					command -f completion//completeoptions -eS
+					;;
+				('')
+					command -f completion//getoperands
+					[ ${WORDS[#]} -eq 1 ] && command -f completion/pass::complete_entries
+					;;
+			esac
+			;;
+		(edit)
+			[ ${WORDS[#]} -eq 2 ] && command -f completion/pass::complete_entries
+			;;
+		(generate)
+			OPTIONS=( #>#
+				"n --no-symbols; no symbols"
+				"q --qrcode; qrcode"
+				"c --clip; clip"
+				"f --force; force"
+				"i --in-place; in place"
+			) #<#
+			command -f completion//parseoptions -es
+			case $ARGOPT in
+				(-)
+					command -f completion//completeoptions -eS
+					;;
+				('')
+					command -f completion//getoperands
+					[ ${WORDS[#]} -eq 1 ] && command -f completion/pass::complete_entries
+					;;
+			esac
+			;;
+		(delete|rm|remove)
+			OPTIONS=( #>#
+				"r --recursive; recursive"
+				"f --force; force"
+			) #<#
+			command -f completion//parseoptions -es
+			case $ARGOPT in
+				(-)
+					command -f completion//completeoptions -eS
+					;;
+				('')
+					command -f completion//getoperands
+					[ ${WORDS[#]} -eq 1 ] && command -f completion/pass::complete_entries
+					;;
+			esac
+			;;
+		(rename|mv|copy|cp)
+			OPTIONS=( #>#
+				"f --force; force"
+			) #<#
+			command -f completion//parseoptions -es
+			case $ARGOPT in
+				(-)
+					command -f completion//completeoptions -eS
+					;;
+				('')
+					command -f completion//getoperands
+					[ ${WORDS[#]} -le 2 ] && command -f completion/pass::complete_entries
+					;;
+			esac
+			;;
+		(git)
+			. -AL completion/git
+			WORDS=(git -C "$PASSWORD_STORE_DIR")  # Might be edge cases
+			command -f completion/git
+			;;
+		# TODO extensions
+		(*)
+			command -f completion/pass::show
+			;;
+	esac
+}
+
+function completion/pass::show {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"c --clip::; clip"
+		"q --qrcode::; qrcode"
+	) #<#
+	command -f completion//parseoptions -en
+	case $ARGOPT in
+		(-)
+			command -f completion//completeoptions -eS
+			case $PREFIX in
+				(-c)
+					complete -P -c 2 3 4
+					;;
+				(-q)
+					complete -P -q 2 3 4
+					;;
+			esac
+			;;
+		('')
+			case ${WORDS[-1]} in
+				(--clip|-c|--qrcode|-q)
+					complete 2 3 4
+					;;
+			esac
+			command -f completion//getoperands
+			if [ ${WORDS[#]} -eq 0 ];
+			then
+				command -f completion/pass::complete_entries
+			fi
+			if [ ${WORDS[#]} -eq 1 ] && [ x${WORDS[-1]} = xshow ];
+			then
+				command -f completion/pass::complete_entries
+			fi
+	esac
+}
+
+function completion/pass::complete_keys {
+	typeset listing keyid
+	while read -r listing;
+	do
+		keyid="$(echo "$listing" | cut -d: -f5)"
+		test -n "$keyid" && complete -D "$listing" -- "$keyid"
+	done <(gpg2 --list-secret-keys --with-colons)
+}
+
+function completion/pass::complete_passdir {
+	pushd "$PASSWORD_STORE_DIR" 2>/dev/null || return
+	complete -d -R ".*"
+	popd > /dev/null
+}
+
+function completion/pass::complete_entries {
+	# FIXME given file structure like
+	# root/
+	#  file
+	#  dir/
+	# `pass root/<tab>` will complete like
+	# dir/	root/file
+	# It works fine, but it looks ugly.
+	# idk how to strip prefixes from the manual `complete` calls
+	pushd "$PASSWORD_STORE_DIR" 2>/dev/null || return
+	# Complete directories
+	complete -d -R '.git' -R '/.' -R '.' -R '/..' -R '..' -T -S /
+	# Complete files
+	# The `complete` builtin doesn't work because we need to strip suffixes
+	typeset item oldopt="$(set +o)"
+	set -o nullglob
+	for item in "$TARGETWORD"*.gpg;
+	do
+		complete "${item%.gpg}"
+	done
+	eval "$oldopt"
+	popd > /dev/null
+}

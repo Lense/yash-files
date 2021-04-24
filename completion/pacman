@@ -1,0 +1,348 @@
+# (C) 2021 Lense
+
+# Supports pacman 5.2.2
+# Completes all options and standard operation operands.
+# Does not yet complete operands for options.
+# So `pacman -S <complete>` and `pacman -S --d<complete>` work,
+# but `pacman -S --dbpath <complete>` does not.
+
+function completion/pacman {
+	typeset i=0 target=""
+	# Search for operations and call operation-specific completion functions if
+	# applicable
+	while [ $i -le ${WORDS[#]} ]; do
+		if [ $i -eq 0 ];
+		then
+			target="$TARGETWORD"
+		else
+			target="${WORDS[i]}"
+		fi
+		case $target in
+			(--) [ $i -ne 0 ] && return ;;
+			(-*V*|--version)
+				return
+				;;
+			(-*D*|--database)
+				command -f completion/pacman::database
+				return
+				;;
+			(-*F*|--files)
+				command -f completion/pacman::files
+				return
+				;;
+			(-*Q*|--query)
+				command -f completion/pacman::query
+				return
+				;;
+			(-*R*|--remove)
+				command -f completion/pacman::remove
+				return
+				;;
+			(-*S*|--sync)
+				command -f completion/pacman::sync
+				return
+				;;
+			(-*T*|--deptest)
+				command -f completion/pacman::deptest
+				return
+				;;
+			(-*U*|--upgrade)
+				command -f completion/pacman::upgrade
+				return
+				;;
+		esac
+		i=$((i+1))
+	done
+
+	# Complete operation
+	case $TARGETWORD in
+		(--*)
+			complete -- --help
+			complete -- --version
+			complete -- --database
+			complete -- --files
+			complete -- --query
+			complete -- --remove
+			complete -- --sync
+			complete -- --deptest
+			complete -- --upgrade
+			;;
+		(-*|'')
+			complete -D help -- -h
+			complete -D version -- -V
+			complete -T -D database -- -D
+			complete -T -D files -- -F
+			complete -T -D query -- -Q
+			complete -T -D remove -- -R
+			complete -T -D sync -- -S
+			complete -T -D deptest -- -T
+			complete -T -D upgrade -- -U
+			;;
+	esac
+}
+
+function completion/pacman::database {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"h --help; help"
+		"b: --dbpath:; set an alternate database location"  # <path>
+		"k --check; check that package files exist (-kk for file properties)"
+		"q --quiet; show less information for query and search"
+		"r: --root:; set an alternate installation root"  # <path>
+		"v --verbose; be verbose"
+		"--arch; set an alternate architecture"  # <arch>
+		"--asdeps; mark packages as non-explicitly installed"
+		"--asexplicit; mark packages as explicitly installed"
+		"--cachedir:; set an alternate package cache location"  # <dir>
+		"--color:; colorize the output"  # <when>
+		"--config:; set an alternate configuration file"  # <path>
+		"--confirm; always ask for confirmation"
+		"--debug; display debug messages"
+		"--disable-download-timeout; use relaxed timeouts for download"
+		"--gpgdir:; set an alternate home directory for GnuPG"  # <path>
+		"--hookdir:; set an alternate hook location"  # <dir>
+		"--logfile:; set an alternate log file"  # <path>
+		"--noconfirm; do not ask for any confirmation"
+		"--sysroot; operate on a mounted guest system (root-only)"
+	) #<#
+	command -f completion//parseoptions -es
+	case $ARGOPT in
+		(-) command -f completion//completeoptions ;;
+		('') command -f completion/pacman::completeinstalledpackage ;;
+	esac
+}
+
+function completion/pacman::files {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"h --help; help"
+		"b: --dbpath:; set an alternate database location"  # <path>
+		"l --list; list the files owned by the queried package"
+		"q --quiet; show less information for query and search"
+		"r: --root:; set an alternate installation root"  # <path>
+		"v --verbose; be verbose"
+		"x --regex; enable searching using regular expressions"
+		"y --refresh; download fresh package databases from the server (-yy to force a refresh even if up to date)"
+		"--arch; set an alternate architecture"  # <arch>
+		"--cachedir:; set an alternate package cache location"  # <dir>
+		"--color:; colorize the output"  # <when>
+		"--config:; set an alternate configuration file"  # <path>
+		"--confirm; always ask for confirmation"
+		"--debug; display debug messages"
+		"--disable-download-timeout; use relaxed timeouts for download"
+		"--gpgdir:; set an alternate home directory for GnuPG"  # <path>
+		"--hookdir:; set an alternate hook location"  # <dir>
+		"--logfile:; set an alternate log file"  # <path>
+		"--machinereadable; produce machine-readable output"
+		"--noconfirm; do not ask for any confirmation"
+		"--sysroot; operate on a mounted guest system (root-only)"
+	) #<#
+	command -f completion//parseoptions -es
+	case $ARGOPT in
+		(-) command -f completion//completeoptions ;;
+		('') ;;
+	esac
+}
+
+function completion/pacman::query {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"h --help; help"
+		"b: --dbpath:; set an alternate database location"  # <path>
+		"c --changelog; view the changelog of a package"
+		"d --deps; list packages installed as dependencies [filter]"
+		"e --explicit; list packages explicitly installed [filter]"
+		"g --groups; view all members of a package group"
+		"i --info; view package information (-ii for backup files)"
+		"k --check; check that package files exist (-kk for file properties)"
+		"l --list; list the files owned by the queried package"
+		"m --foreign; list installed packages not found in sync db(s) [filter]"
+		"n --native; list installed packages only found in sync db(s) [filter]"
+		"o: --owns:; query the package that owns <file>"  # <file>
+		"p: --file:; query a package file instead of the database"  # <package>
+		"q --quiet; show less information for query and search"
+		"r: --root:; set an alternate installation root"  # <path>
+		"s: --search:; search locally-installed packages for matching strings"  # <regex>
+		"t --unrequired; list packages not (optionally) required by any package (-tt to ignore optdepends) [filter]"
+		"u --upgrades; list outdated packages [filter]"
+		"v --verbose; be verbose"
+		"--arch:;  set an alternate architecture"  # <arch>
+		"--cachedir:; set an alternate package cache location"  # <dir>
+		"--color:; colorize the output"  # <when>
+		"--config:; set an alternate configuration file"  # <path>
+		"--confirm; always ask for confirmation"
+		"--debug; display debug messages"
+		"--disable-download-timeout; use relaxed timeouts for download"
+		"--gpgdir:; set an alternate home directory for GnuPG"  # <path>
+		"--hookdir:; set an alternate hook location"  # <dir>
+		"--logfile:; set an alternate log file"  # <path>
+		"--noconfirm; do not ask for any confirmation"
+		"--sysroot; operate on a mounted guest system (root-only)"
+	) #<#
+	command -f completion//parseoptions -es
+	case $ARGOPT in
+		(-) command -f completion//completeoptions ;;
+		('') command -f completion/pacman::completeinstalledpackage ;;
+	esac
+}
+
+function completion/pacman::sync {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"h --help; help"
+		"b: --dbpath:; set an alternate database location"  # <path>
+		"c --clean; remove old packages from cache directory (-cc for all)"
+		"d --nodeps; skip dependency version checks (-dd to skip all checks)"
+		"g --groups; view all members of a package group (-gg to view all groups and members)"
+		"i --info; view package information (-ii for extended information)"
+		"l --list:; view a list of packages in a repo"  # repo
+		"p --print; print the targets instead of performing the operation"
+		"q --quiet; show less information for query and search"
+		"r: --root:; set an alternate installation root"  # <path>
+		"s: --search:; search remote repositories for matching strings"  # <regex>
+		"u --sysupgrade; upgrade installed packages (-uu enables downgrades)"
+		"v --verbose; be verbose"
+		"w --downloadonly; download packages but do not install/upgrade anything"
+		"y --refresh; download fresh package databases from the server (-yy to force a refresh even if up to date)"
+		"--arch:; set an alternate architecture"  # <arch>
+		"--asdeps; install packages as non-explicitly installed"
+		"--asexplicit; install packages as explicitly installed"
+		"--assume-installed:; add a virtual package to satisfy dependencies"  # <package=version>
+		"--cachedir:; set an alternate package cache location"  # <dir>
+		"--color:; colorize the output"  # <when>
+		"--confirm; always ask for confirmation"
+		"--dbonly; only modify database entries, not package files"
+		"--debug; display debug messages"
+		"--disable-download-timeout; use relaxed timeouts for download"
+		"--gpgdir:; set an alternate home directory for GnuPG"  # <path>
+		"--hookdir:; set an alternate hook location"  # <dir>
+		"--ignore:; ignore a package upgrade (can be used more than once)"  # <pkg>
+		"--ignoregroup:; ignore a group upgrade (can be used more than once)"  # <grp>
+		"--logfile:; set an alternate log file"  # <path>
+		"--needed; do not reinstall up to date packages"
+		"--noconfirm; do not ask for any confirmation"
+		"--noprogressbar; do not show a progress bar when downloading files"
+		"--noscriptlet; do not execute the install scriptlet if one exists"
+		"--overwrite:; overwrite conflicting files (can be used more than once"  # <path>
+		"--print-format:; specify how the targets should be printed"  # <string>
+		"--noconfirm; do not ask for any confirmation"
+		"--sysroot; operate on a mounted guest system (root-only)"
+	) #<#
+	command -f completion//parseoptions -es
+	case $ARGOPT in
+		(-) command -f completion//completeoptions ;;
+		('') command -f completion/pacman::completerepopackage ;;
+	esac
+}
+
+function completion/pacman::remove {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"h --help; help"
+		"b: --dbpath:; set an alternate database location"  # <path>
+		"c --cascade:; remove packages and all packages that depend on them"
+		"d --nodeps; skip dependency version checks (-dd to skip all checks)"
+		"n --nosave; remove configuration files"
+		"p --print; print the targets instead of performing the operation"
+		"r: --root:; set an alternate installation root"  # <path>
+		"s --recursive; remove unnecessary dependencies (-ss includes explicitly installed dependencies)"
+		"u --unneeded; remove unneeded packages"
+		"v --verbose; be verbose"
+		"--arch:; set an alternate architecture"  # <arch>
+		"--assume-installed:; add a virtual package to satisfy dependencies"  # <package=version>
+		"--cachedir:; set an alternate package cache location"  # <dir>
+		"--color:; colorize the output"  # <when>
+		"--config:; set an alternate configuration file"  # <path>
+		"--confirm; always ask for confirmation"
+		"--dbonly; only modify database entries, not package files"
+		"--debug; display debug messages"
+		"--disable-download-timeout; use relaxed timeouts for download"
+		"--gpgdir:; set an alternate home directory for GnuPG"  # <path>
+		"--hookdir:; set an alternate hook location"  # <dir>
+		"--logfile:; set an alternate log file"  # <path>
+		"--noconfirm; do not ask for any confirmation"
+		"--noprogressbar; do not show a progress bar when downloading files"
+		"--noscriptlet; do not execute the install scriptlet if one exists"
+		"--print-format:; specify how the targets should be printed"  # <string>
+		"--sysroot; operate on a mounted guest system (root-only)"
+	) #<#
+	command -f completion//parseoptions -es
+	case $ARGOPT in
+		(-) command -f completion//completeoptions ;;
+		('') command -f completion/pacman::completeinstalledpackage ;;
+	esac
+}
+
+function completion/pacman::deptest {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"h --help; help"
+		"b: --dbpath:; set an alternate database location"  # <path>
+		"r: --root:; set an alternate installation root"  # <path>
+		"v --verbose; be verbose"
+		"--arch:; set an alternate architecture"  # <arch>
+		"--cachedir:; set an alternate package cache location"  # <dir>
+		"--color:; colorize the output"  # <when>
+		"--config:; set an alternate configuration file"  # <path>
+		"--confirm; always ask for confirmation"
+		"--debug; display debug messages"
+		"--disable-download-timeout; use relaxed timeouts for download"
+		"--gpgdir:; set an alternate home directory for GnuPG"  # <path>
+		"--hookdir:; set an alternate hook location"  # <dir>
+		"--logfile:; set an alternate log file"  # <path>
+		"--noconfirm; do not ask for any confirmation"
+		"--sysroot; operate on a mounted guest system (root-only)"
+	) #<#
+	command -f completion//parseoptions -es
+	case $ARGOPT in
+		(-) command -f completion//completeoptions ;;
+		('') command -f completion/pacman::completerepopackage ;;
+	esac
+}
+
+function completion/pacman::upgrade {
+	typeset OPTIONS ARGOPT PREFIX
+	OPTIONS=( #>#
+		"h --help; help"
+		"b: --dbpath:; set an alternate database location"  # <path>
+		"d --nodeps; skip dependency version checks (-dd to skip all checks)"
+		"p --print; print the targets instead of performing the operation"
+		"r: --root:; set an alternate installation root"  # <path>
+		"v --verbose; be verbose"
+		"--arch:; set an alternate architecture"  # <arch>
+		"--asdeps; install packages as non-explicitly installed"
+		"--asexplicit; install packages as explicitly installed"
+		"--assume-installed:; add a virtual package to satisfy dependencies"  # <package=version>
+		"--cachedir:; set an alternate package cache location"  # <dir>
+		"--color:; colorize the output"  # <when>
+		"--confirm; always ask for confirmation"
+		"--dbonly; only modify database entries, not package files"
+		"--debug; display debug messages"
+		"--disable-download-timeout; use relaxed timeouts for download"
+		"--gpgdir:; set an alternate home directory for GnuPG"  # <path>
+		"--hookdir:; set an alternate hook location"  # <dir>
+		"--ignore:; ignore a package upgrade (can be used more than once)"  # <pkg>
+		"--ignoregroup:; ignore a group upgrade (can be used more than once)"  # <grp>
+		"--logfile:; set an alternate log file"  # <path>
+		"--needed; do not reinstall up to date packages"
+		"--noconfirm; do not ask for any confirmation"
+		"--noprogressbar; do not show a progress bar when downloading files"
+		"--noscriptlet; do not execute the install scriptlet if one exists"
+		"--overwrite:; overwrite conflicting files (can be used more than once"  # <path>
+		"--print-format:; specify how the targets should be printed"  # <string>
+		"--sysroot; operate on a mounted guest system (root-only)"
+	) #<#
+	command -f completion//parseoptions -es
+	case $ARGOPT in
+		(-) command -f completion//completeoptions ;;
+		('') complete -f ;;
+	esac
+}
+
+function completion/pacman::completeinstalledpackage {
+	complete $(pacman -Qq 2>/dev/null)
+}
+
+function completion/pacman::completerepopackage {
+	complete $(pacman -Slq 2>/dev/null)
+}
